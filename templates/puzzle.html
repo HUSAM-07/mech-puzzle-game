@@ -1,0 +1,367 @@
+<!doctype html>
+<html>
+
+<head>
+    <meta charset="utf-8" />
+    <title>Puzzle Game</title>
+
+    <script src="https://d309knd7es5f10.cloudfront.net/createjs_1.1_min.js"></script>
+    <script>
+        var zon = false; // set to false to turn off console messages from zim
+        var zns = false; // set to true to require zim namespace - eg. new zim.Frame()
+    </script>
+    <script src="https://zimjs.org/cdn/10.6.0/zim.js"></script>
+    <!-- use zimjs.com/distill for minified individual functions! -->
+
+    <meta name="viewport" content="width=device-width, user-scalable=no" />
+</head>
+
+<body>
+    <div style="display: block;
+    text-align: center;
+    z-index: 99999999;
+    position: absolute;
+    width: 100%;">
+        <p>
+            <p style="background: rgb(70, 0, 0);color:white;font-family: Verdana;font-size: large;
+            padding: 20px;
+            border-radius: 20px;width:fit-content;margin: auto;">Time<br> <em id="timertext" style="font-size: larger;">-</em></p>
+        </p>
+    </div>
+    <!-- canvas with id="myCanvas" is made by zim Frame -->
+</body>
+
+<script>
+    var timer = parseInt("{{max_time}}");
+    var elem = document.getElementById("timertext");
+    var over = false;
+    function formatTime(seconds){
+        var min = Math.floor(seconds/60);
+        var sec = seconds%60;
+        return min + ":" + ("0"+sec).slice(-2);
+    }
+    function decrementTimer(){
+        if (timer > 0){
+            timer--;
+            elem.innerHTML = formatTime(timer);
+        }
+        else{
+            if (over){
+                console.log("OVER", timer);
+                over = true;
+            }
+        }
+    }
+    
+    var a = [];
+    setTimeout(()=>{a.push(setInterval(decrementTimer,1000));},3000);
+
+    function givePuzzleBonus(){
+        timer += 5;
+        elem.innerHTML = formatTime(timer);
+    }
+    function stopTimer(){
+        clearInterval(a[0]);
+        elem.innerHTML = "Time to guess..!";
+        console.log("OVER", timer);
+    }
+</script>
+
+<script>
+    // SCALING OPTIONS
+    // scaling can have values as follows with full being the default
+    // "fit"	sets canvas and stage to dimensions and scales to fit inside window size
+    // "outside"	sets canvas and stage to dimensions and scales to fit outside window size
+    // "full"	sets stage to window size with no scaling
+    // "tagID"	add canvas to HTML tag of ID - set to dimensions if provided - no scaling
+
+    var asset_url = "{{url_for('static', filename=image)}}"; 
+    var pieces = parseInt("{{puzzle_pieces}}");
+    var difficulty = parseFloat("{{difficulty}}");
+    
+    ht = parseFloat("{{height}}");
+    wt = parseFloat("{{width}}");
+
+    console.log(asset_url, pieces, difficulty, ht, wt);
+
+    var scaling = "fit"; // this will resize to fit inside the screen dimensions
+
+    // var height = ht + (ht/pieces);
+    // var width = (wt/ht)*height;
+    var height = ht;
+    var width = wt;
+    
+    var countPieces = 0;
+    var totalPieces = 0;
+
+    var frame = new Frame(scaling, width, height);
+    frame.on("ready", function()
+    {
+        var stage = frame.stage;
+        var stageW = frame.width;
+        var stageH = frame.height;
+
+        var puzzleX;
+        var puzzleY;
+        frame.outerColor = "#fff";
+        frame.color = "#fff";
+
+        var con = new Container
+
+        var imageObj = [];
+        var piecesArrayObj = [];
+        frame.loadAssets([asset_url]);
+
+        frame.on("complete", function() {
+            imageObj = frame.asset(asset_url).clone();
+            imageObj.addTo(con);
+            imageObj.alpha = 0;
+
+            var piecesArray = new Array();
+            var horizontalPieces = pieces;
+            var verticalPieces = pieces;
+            var obj = getQueryString();
+            if(obj)
+            {
+               horizontalPieces = obj.row;
+               verticalPieces = obj.column;
+            }
+            var imageWidth = imageObj.width;
+            var imageHeight = imageObj.height;
+            var pieceWidth = Math.round(imageWidth / horizontalPieces);
+            var pieceHeight = Math.round(imageHeight / verticalPieces);
+            var gap = 40*(1/difficulty); 
+            totalPieces = horizontalPieces*verticalPieces;
+
+            puzzleX = frame.width/2-imageWidth/2;
+            puzzleY = frame.height/2-imageHeight/2;
+            // puzzleY = (ht/pieces)/2;
+            // puzzleX = (wt/ht)*puzzleY;
+            imageObj.pos(puzzleX,puzzleY);
+
+            for (j = 0; j < verticalPieces; j++) {
+                piecesArrayObj[j] = [];
+                for (i = 0; i < horizontalPieces; i++) {
+                    var n = j + i * verticalPieces;
+
+                    var offsetX = pieceWidth * i;
+                    var offsetY = pieceHeight * j;
+                    // offsetX += puzzleX;
+                    // offsetY += puzzleY;
+
+                    var x8 = Math.round(pieceWidth / 8);
+                    var y8 = Math.round(pieceHeight / 8);
+
+                    piecesArrayObj[j][i] = new Object();
+                    piecesArrayObj[j][i].right = Math.floor(Math.random() * 2);
+                    piecesArrayObj[j][i].down = Math.floor(Math.random() * 2);
+
+                    if (j > 0) {
+                        piecesArrayObj[j][i].up = 1 - piecesArrayObj[j - 1][i].down;
+                    }
+                    if (i > 0) {
+                        piecesArrayObj[j][i].left = 1 - piecesArrayObj[j][i - 1].right;
+                    }
+
+                    piecesArray[n] = new Rectangle({
+                        width: pieceWidth,
+                        height: pieceHeight,
+                    });
+
+                    var tileObj = piecesArrayObj[j][i];
+                    var s = new Shape
+
+                    var context = s.graphics;
+                    s.drag();
+                    s.mouseChildren = false;
+                    s.addEventListener("pressup", function(e) {
+                        var mc = e.currentTarget;
+
+                        var xx = Math.round(mc.x);
+                        var yy = Math.round(mc.y);
+                        if (xx < puzzleX+gap / 2 && xx > puzzleX-gap / 2 && yy < puzzleY+gap / 2 && yy > puzzleY-gap / 2) {
+                             mc.x = puzzleX;
+                            mc.y = puzzleY;
+                            mc.noDrag();
+                            mc.addTo(mc.parent,0);
+                            mc.mouseChildren = false;
+                            mc.mouseEnabled = false;
+                            mc.hint.visible = false;
+                            countPieces++;
+                            if(countPieces == totalPieces)
+                            {
+                                stopTimer();
+                                var currentURL = window.location.href;
+                                // Get the current URL
+                                var currentURL = window.location.href;
+
+                                // Extract the <variable> from the URL
+                                var variable = currentURL.split('/').pop();
+
+                                // Extract the base URL
+                                var baseURL = currentURL.substring(0, currentURL.indexOf('/'));
+
+                                // Construct the new URL for redirection
+                                var newURL = baseURL + "/blank/" + variable;
+
+                                // Redirect to the new URL
+                                setTimeout(()=>{window.location.href = newURL;}, 5000);
+                                // var pane = new Pane({width:width*0.75, height:0.75*(width*0.75), modal:false, displayClose:false});
+                                // new Label({text: "Nice Work", size:100}).center(pane).mov(0,-200);
+                                // var confirm = new Button({width: 320, height:250, label:new Label({text:"Close", size:90}), backgroundColor:"red"}).center(pane).mov(0,70);
+
+                                // confirm.on("click", function() {
+                                //     pane.hide();
+                                //     window.location.replace(window.location.pathname + window.location.search + window.location.hash);
+
+                                // });
+                                // pane.show();
+                            }
+                            else{
+                                givePuzzleBonus()
+                            }
+                            stage.update();
+
+                        }
+
+                    });
+                    context.setStrokeStyle(3,"round");
+                    var commandi1 = context.beginStroke(createjs.Graphics.getRGB(0, 0, 0)).command;
+                    
+                    var commandi = context.beginBitmapFill(imageObj.image).command;
+
+                    context.moveTo(offsetX, offsetY);
+
+                    if (j != 0) {
+                        context.lineTo(offsetX + 3 * x8, offsetY);
+                        if (tileObj.up == 1) {
+                            context.curveTo(offsetX + 2 * x8, offsetY - 2 * y8, offsetX + 4 * x8, offsetY - 2 * y8);
+                            context.curveTo(offsetX + 6 * x8, offsetY - 2 * y8, offsetX + 5 * x8, offsetY);
+                        } else {
+                            context.curveTo(offsetX + 2 * x8, offsetY + 2 * y8, offsetX + 4 * x8, offsetY + 2 * y8);
+                            context.curveTo(offsetX + 6 * x8, offsetY + 2 * y8, offsetX + 5 * x8, offsetY);
+                        }
+                    }
+                    context.lineTo(offsetX + 8 * x8, offsetY);
+                    if (i != horizontalPieces - 1) {
+                        context.lineTo(offsetX + 8 * x8, offsetY + 3 * y8);
+                        if (tileObj.right == 1) {
+                            context.curveTo(offsetX + 10 * x8, offsetY + 2 * y8, offsetX + 10 * x8, offsetY + 4 * y8);
+                            context.curveTo(offsetX + 10 * x8, offsetY + 6 * y8, offsetX + 8 * x8, offsetY + 5 * y8);
+                        } else {
+                            context.curveTo(offsetX + 6 * x8, offsetY + 2 * y8, offsetX + 6 * x8, offsetY + 4 * y8);
+                            context.curveTo(offsetX + 6 * x8, offsetY + 6 * y8, offsetX + 8 * x8, offsetY + 5 * y8);
+                        }
+                    }
+                    context.lineTo(offsetX + 8 * x8, offsetY + 8 * y8);
+                    if (j != verticalPieces - 1) {
+                        context.lineTo(offsetX + 5 * x8, offsetY + 8 * y8);
+                        if (tileObj.down == 1) {
+                            context.curveTo(offsetX + 6 * x8, offsetY + 10 * y8, offsetX + 4 * x8, offsetY + 10 * y8);
+                            context.curveTo(offsetX + 2 * x8, offsetY + 10 * y8, offsetX + 3 * x8, offsetY + 8 * y8);
+                        } else {
+                            context.curveTo(offsetX + 6 * x8, offsetY + 6 * y8, offsetX + 4 * x8, offsetY + 6 * y8);
+                            context.curveTo(offsetX + 2 * x8, offsetY + 6 * y8, offsetX + 3 * x8, offsetY + 8 * y8);
+                        }
+                    }
+                    context.lineTo(offsetX, offsetY + 8 * y8);
+                    if (i != 0) {
+                        context.lineTo(offsetX, offsetY + 5 * y8);
+                        if (tileObj.left == 1) {
+                            context.curveTo(offsetX - 2 * x8, offsetY + 6 * y8, offsetX - 2 * x8, offsetY + 4 * y8);
+                            context.curveTo(offsetX - 2 * x8, offsetY + 2 * y8, offsetX, offsetY + 3 * y8);
+                        } else {
+                            context.curveTo(offsetX + 2 * x8, offsetY + 6 * y8, offsetX + 2 * x8, offsetY + 4 * y8);
+                            context.curveTo(offsetX + 2 * x8, offsetY + 2 * y8, offsetX, offsetY + 3 * y8);
+                        }
+                    }
+                    context.lineTo(offsetX, offsetY);
+                    s.pos(puzzleX+s.x,puzzleY+s.y); // random spread all round puzzle
+                    s.addTo(con);
+
+                    var fill = new createjs.Graphics.Fill("red");
+
+                    //var newGra = context.append(fill);
+                    var hint = new Shape();//s.clone(true);
+                    hint.mouseChildren = false;
+                    hint.mouseEnabled = false;
+                    s.hint = hint;
+                    hint.graphics = context.clone(true);
+                    hint.pos(puzzleX,puzzleY);
+                   // newGra.graphics = newGra;
+                    hint.graphics._fill = fill;
+                    hint.graphics._fill.style = null;
+
+                    hint.addTo(con,0);
+                    //s.animate({obj:{x:frame.width-offsetX-pieceWidth,y:frame.height-offsetY-pieceHeight}, time:700});
+                    // s.animate({obj:{x:-offsetX,y:-offsetY}, time:700});
+                    function getRandomArbitrary(min, max) {
+                        min = Math.ceil(min);
+                        max = Math.floor(max);
+                        return Math.floor(Math.random() * (max - min + 1)) + min;
+                    }
+                    function shufflepiece(s,offsetX,frame,offsetY,pieceHeight,pieceWidth) {
+                        var obj_arr = [{x:rand(-offsetX,frame.width-offsetX-pieceWidth),y:frame.height-offsetY-pieceHeight}, {x:rand(-offsetX,frame.width-offsetX-pieceWidth),y:-offsetY}, {x:-offsetX,y:rand(frame.height-offsetY-pieceHeight,-offsetY)}, {x:frame.width-offsetX-pieceWidth,y:rand(frame.height-offsetY-pieceHeight,-offsetY)}];
+                        s.animate({obj:obj_arr[getRandomArbitrary(0,3)], time:1000});
+                    }
+                    setTimeout((s,offsetX,frame,offsetY,pieceHeight,pieceWidth)=>{shufflepiece(s,offsetX,frame,offsetY,pieceHeight,pieceWidth)},2000, s, offsetX,frame,offsetY,pieceHeight,pieceWidth);
+
+                }
+            }
+
+            con.addTo(stage);
+            /*con.x -= imageWidth/2;
+            con.y -= imageHeight/2;*/
+            stage.update();
+
+        }); // end asset complete
+
+        stage.update(); // this is needed to show any changes
+
+    });
+</script>
+
+<script>
+    function popupQuestion(){
+        if (questions.length > 0){
+            var q = questions.pop();
+            var pane = new Pane({scaling: 4, width:width*0.85, height:height, modal:false, displayClose:false});
+            new Label({text: q["question"], size:100, labelWidth: width*0.75}).center(pane).mov(0,-400);
+
+            var options = q["options"];
+
+            for (var i=0; i<options.length; i++){
+                var option = new Button({width:width*0.4, height:90, label: new Label({text:options[i], size:80, backgroundColor:"green", rollBackgroundColor:"green", borderColor:"green"})}).center(pane).mov(0,0 + 140*i);
+                option.on("click", function(e) {
+                    pane.hide();
+                    console.log(e);
+                    if (e.currentTarget.label.label.text == q["answer"]){
+                        var pane2 = new Pane({width:width*0.75, height:0.75*(width*0.75), modal:false, displayClose:false});
+                        new Label({text: "NICE WORK!\nYou have earned 10 seconds!", size:90}).center(pane2).mov(0,-200);
+                        var confirm = new Button({width: 320, height:250, label:new Label({text:"Close", size:90}), backgroundColor:"green"}).center(pane2).mov(0,70);
+
+                        confirm.on("click", function() {
+                            pane2.hide();
+                            givePuzzleBonus();
+                            givePuzzleBonus();
+                        });
+                        pane2.show();
+                    }
+                    else{
+                        var pane2 = new Pane({width:width*0.75,label:"WRONG ANSWER!", height:0.75*(width*0.75), modal:false, displayClose:false});
+                        new Label({text: "The correct answer is\n" + q["answer"], size:90}).center(pane2).mov(0,-200);
+                        var confirm = new Button({width: 320, height:250, label:new Label({text:"Close", size:90}), backgroundColor:"red"}).center(pane2).mov(0,70);
+
+                        confirm.on("click", function() {
+                            pane2.hide();
+                        });
+                        pane2.show();
+                    }
+                });
+            }
+            pane.show();
+        }
+    }
+</script>
+
+</html>
