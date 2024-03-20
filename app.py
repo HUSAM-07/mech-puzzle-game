@@ -1,5 +1,6 @@
 from flask import Flask, render_template, session, abort, redirect, url_for
 import os, random, cv2
+from base64 import b64encode, b64decode
 
 app = Flask(__name__)
 app.config["SECRET_KEY"] = "adasdljnsdihvu93887lasd"
@@ -9,8 +10,9 @@ def puzzle(mp):
     files = os.listdir("static/puzzleimages")
     if mp == "random":
         image = random.choice(files)
-        return redirect(url_for("puzzle", mp=image.split(".")[0]))
+        return redirect(url_for("puzzle", mp=b64encode(image.split(".")[0].encode("utf-8")).decode("utf-8")))
     else:
+        mp = b64decode(mp).decode("utf-8")
         if mp+".jpg" in files:
             image = mp+".jpg"
         else:
@@ -22,11 +24,12 @@ def puzzle(mp):
 
 @app.route("/blank/<mp>", methods=["GET"])
 def fib(mp):
+    mp = b64decode(mp).decode("utf-8")
     files = os.listdir("static/puzzleimages")
     if mp+".jpg" in files:
         image = mp+".jpg"
     else:
         abort(404)
     
-    return render_template("blank.html", word=mp)
+    return render_template("blank.html", word=mp, image="puzzleimages/"+image)
 
